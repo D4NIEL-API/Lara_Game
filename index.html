@@ -510,16 +510,32 @@
         // DIBUJAR TENTÁCULOS (Detrás de la campana)
         player.tentacles.forEach((t, i) => {
             let offset = (i-6)*3;
-            // Base del tentáculo sigue a la medusa
-            t[0].x = player.x + Math.sin(angle)*(25+breath) + offset;
-            t[0].y = player.y + 10 + Math.abs(offset/4);
-            // Longitud reducida y segmentDist de 5 para evitar estiramiento
+            // COORDENADAS LOCALES + ROTACIÓN (Fijar tentáculos al cuerpo)
+            let localX = offset;
+            let localY = 10 + Math.abs(offset/4); // Base vertical relativa
+
+            // Rotar coordenadas locales
+            let rotX = localX * Math.cos(angle) - localY * Math.sin(angle);
+            let rotY = localX * Math.sin(angle) + localY * Math.cos(angle);
+
+            // Aplicar a la cabeza del tentáculo
+            t[0].x = player.x + rotX;
+            t[0].y = player.y + rotY;
+
             drawTentacle(t, 'rgba(0, 255, 204, 0.4)', 1, 1.2, 5); 
         });
         
         player.arms.forEach((t, i) => {
-            t[0].x = player.x + (i-2)*2; 
-            t[0].y = player.y + 5;
+            let offset = (i-2)*2;
+            let localX = offset;
+            let localY = 5;
+
+            let rotX = localX * Math.cos(angle) - localY * Math.sin(angle);
+            let rotY = localX * Math.sin(angle) + localY * Math.cos(angle);
+
+            t[0].x = player.x + rotX;
+            t[0].y = player.y + rotY;
+
             drawTentacle(t, 'rgba(200, 255, 255, 0.3)', 3, 0.5, 4); 
         });
 
@@ -558,7 +574,6 @@
         ctx.beginPath(); ctx.arc(gDist, 0, gSize, 0, Math.PI*2); ctx.fill();
         ctx.restore();
 
-        // Partículas
         for(let i=state.particles.length-1; i>=0; i--) {
             let p = state.particles[i];
             p.x += p.vx; p.y += p.vy; p.life -= 0.05;
