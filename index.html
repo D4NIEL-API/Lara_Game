@@ -326,12 +326,12 @@
         isRunning = false;
         document.getElementById('final-msg').innerText = `Has cultivado ${state.score} setas brillantes.`;
         
-        // ELIMINAR EL PREFIJO BLOB SI EXISTE Y GENERAR URL DE COMPARTIR
         let gameUrl = window.location.href;
         if (gameUrl.startsWith('blob:')) {
             gameUrl = gameUrl.replace('blob:', '');
         }
 
+        // MENSAJE SOLICITADO ACTUALIZADO
         const text = `¡He cultivado ${state.score} setas en Laragame! 🍄✨ Juega aquí e intenta superarme: ${gameUrl}`;
         const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
         waLink.href = url;
@@ -347,12 +347,10 @@
         }
     }
 
-    // --- SPAWN CON DIFICULTAD MÁXIMA ---
     function spawnEntity(forceType) {
         let type = forceType || 'food';
         if(!forceType) {
             const r = Math.random();
-            // DIFICULTAD MUY ALTA
             let toxinProb = 0.15 + (state.score * 0.05);
             if(toxinProb > 0.75) toxinProb = 0.75;
             
@@ -382,16 +380,30 @@
         }
     }
 
-    function drawTentacle(t, color, w, wave) {
+    /**
+     * Dibuja y actualiza la física de un tentáculo con "arrastre hidrodinámico"
+     * para que no colapse al estar quieto.
+     */
+    function drawTentacle(t, color, w, wave, segmentDist) {
         ctx.beginPath();
         ctx.moveTo(t[0].x, t[0].y);
+        
         for(let i=1; i<t.length; i++) {
             let p = t[i];
             let prev = t[i-1];
-            p.x += (prev.x - p.x) * 0.4;
-            p.y += (prev.y - p.y) * 0.4;
-            p.x += Math.sin(gameTime * 0.15 + i * 0.3) * wave;
-            ctx.lineTo(p.x, p.y);
+            
+            // FÍSICA MEJORADA: Los segmentos intentan mantener una distancia vertical (segmentDist)
+            // Esto evita que la "cola" desaparezca cuando la medusa no se mueve.
+            const targetX = prev.x;
+            const targetY = prev.y + segmentDist;
+            
+            p.x += (targetX - p.x) * 0.25;
+            p.y += (targetY - p.y) * 0.25;
+            
+            // Movimiento ondulante de agua
+            const currentWave = Math.sin(gameTime * 0.15 + i * 0.3) * wave;
+            
+            ctx.lineTo(p.x + currentWave, p.y);
         }
         ctx.strokeStyle = color;
         ctx.lineWidth = w;
@@ -485,28 +497,33 @@
             }
         }
 
+        // Actualización jugador
         player.x += (mouse.x - player.x) * 0.08;
         player.y += (mouse.y - player.y) * 0.08;
+        
         let angle = (mouse.x - player.x) * 0.003;
         if(angle > 0.4) angle = 0.4; if(angle < -0.4) angle = -0.4;
 
-        ctx.save();
-        ctx.translate(player.x, player.y);
-        ctx.rotate(angle);
         let breath = Math.sin(gameTime * 0.2) * 2;
-        ctx.restore();
 
+        // Dibujar tentáculos primero (detrás)
+        // Tentáculos largos
         player.tentacles.forEach((t, i) => {
             let offset = (i-6)*3;
+            // Posición inicial de cada tentáculo en la campana
             t[0].x = player.x + Math.sin(angle)*(25+breath) + offset;
             t[0].y = player.y + 10 + Math.abs(offset/4);
-            drawTentacle(t, 'rgba(0, 255, 204, 0.4)', 1, 1.2);
+            drawTentacle(t, 'rgba(0, 255, 204, 0.4)', 1, 1.2, 8); // segmentDist = 8px
         });
+        
+        // Brazos orales
         player.arms.forEach((t, i) => {
-            t[0].x = player.x + (i-2)*2; t[0].y = player.y+5;
-            drawTentacle(t, 'rgba(200, 255, 255, 0.3)', 3, 0.5);
+            t[0].x = player.x + (i-2)*2; 
+            t[0].y = player.y + 5;
+            drawTentacle(t, 'rgba(200, 255, 255, 0.3)', 3, 0.5, 5); // segmentDist = 5px
         });
 
+        // --- CUERPO MEDUSA (Delante de tentáculos) ---
         ctx.save();
         ctx.translate(player.x, player.y);
         ctx.rotate(angle);
@@ -515,6 +532,7 @@
         ctx.fillStyle = 'rgba(0, 30, 40, 0.85)';
         ctx.strokeStyle = '#00ffcc';
         ctx.lineWidth = 1.5;
+        
         ctx.beginPath();
         ctx.moveTo(-player.size * 1.2, 5); 
         ctx.bezierCurveTo(-player.size, -player.size * 1.5, player.size, -player.size * 1.5, player.size * 1.2, 5);
@@ -540,6 +558,7 @@
         ctx.beginPath(); ctx.arc(gDist, 0, gSize, 0, Math.PI*2); ctx.fill();
         ctx.restore();
 
+        // Partículas
         for(let i=state.particles.length-1; i>=0; i--) {
             let p = state.particles[i];
             p.x += p.vx; p.y += p.vy; p.life -= 0.05;
