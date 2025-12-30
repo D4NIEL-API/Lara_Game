@@ -186,7 +186,7 @@
     <div id="start-screen" class="screen">
         <h1>Laragame</h1>
         <p>
-            Dificultad Aumentada.<br>
+            Relájate, respira y cultiva vida.<br>
             Guía a la medusa y sobrevive.<br><br>
             🟣 <b>Esporas:</b> Crean vida<br>
             🔴 <b>Minas:</b> Peligro constante
@@ -284,14 +284,15 @@
     function initPlayer() {
         player.tentacles = [];
         player.arms = [];
+        // Reducido el número de segmentos para que la cola no sea infinita
         for(let i=0; i<12; i++) {
             let t = [];
-            for(let j=0; j<18; j++) t.push({x: player.x, y: player.y + j*5});
+            for(let j=0; j<10; j++) t.push({x: player.x, y: player.y + j*5});
             player.tentacles.push(t);
         }
         for(let i=0; i<4; i++) {
             let t = [];
-            for(let j=0; j<10; j++) t.push({x: player.x, y: player.y + j*5});
+            for(let j=0; j<6; j++) t.push({x: player.x, y: player.y + j*5});
             player.arms.push(t);
         }
     }
@@ -331,7 +332,6 @@
             gameUrl = gameUrl.replace('blob:', '');
         }
 
-        // MENSAJE SOLICITADO ACTUALIZADO
         const text = `¡He cultivado ${state.score} setas en Laragame! 🍄✨ Juega aquí e intenta superarme: ${gameUrl}`;
         const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
         waLink.href = url;
@@ -381,8 +381,8 @@
     }
 
     /**
-     * Dibuja y actualiza la física de un tentáculo con "arrastre hidrodinámico"
-     * para que no colapse al estar quieto.
+     * Dibuja y actualiza la física de un tentáculo.
+     * Mejorado para evitar estiramientos excesivos.
      */
     function drawTentacle(t, color, w, wave, segmentDist) {
         ctx.beginPath();
@@ -392,15 +392,14 @@
             let p = t[i];
             let prev = t[i-1];
             
-            // FÍSICA MEJORADA: Los segmentos intentan mantener una distancia vertical (segmentDist)
-            // Esto evita que la "cola" desaparezca cuando la medusa no se mueve.
-            const targetX = prev.x;
-            const targetY = prev.y + segmentDist;
+            // Física más rígida para que no parezca chicle
+            const dx = prev.x - p.x;
+            const dy = (prev.y + segmentDist) - p.y;
             
-            p.x += (targetX - p.x) * 0.25;
-            p.y += (targetY - p.y) * 0.25;
+            p.x += dx * 0.35;
+            p.y += dy * 0.35;
             
-            // Movimiento ondulante de agua
+            // Movimiento ondulante de agua (limitado)
             const currentWave = Math.sin(gameTime * 0.15 + i * 0.3) * wave;
             
             ctx.lineTo(p.x + currentWave, p.y);
@@ -497,7 +496,6 @@
             }
         }
 
-        // Actualización jugador
         player.x += (mouse.x - player.x) * 0.08;
         player.y += (mouse.y - player.y) * 0.08;
         
@@ -506,24 +504,22 @@
 
         let breath = Math.sin(gameTime * 0.2) * 2;
 
-        // Dibujar tentáculos primero (detrás)
         // Tentáculos largos
         player.tentacles.forEach((t, i) => {
             let offset = (i-6)*3;
-            // Posición inicial de cada tentáculo en la campana
             t[0].x = player.x + Math.sin(angle)*(25+breath) + offset;
             t[0].y = player.y + 10 + Math.abs(offset/4);
-            drawTentacle(t, 'rgba(0, 255, 204, 0.4)', 1, 1.2, 8); // segmentDist = 8px
+            drawTentacle(t, 'rgba(0, 255, 204, 0.4)', 1, 1.2, 5); // Distancia reducida a 5
         });
         
         // Brazos orales
         player.arms.forEach((t, i) => {
             t[0].x = player.x + (i-2)*2; 
             t[0].y = player.y + 5;
-            drawTentacle(t, 'rgba(200, 255, 255, 0.3)', 3, 0.5, 5); // segmentDist = 5px
+            drawTentacle(t, 'rgba(200, 255, 255, 0.3)', 3, 0.5, 3); // Distancia reducida a 3
         });
 
-        // --- CUERPO MEDUSA (Delante de tentáculos) ---
+        // --- CUERPO MEDUSA ---
         ctx.save();
         ctx.translate(player.x, player.y);
         ctx.rotate(angle);
@@ -558,7 +554,6 @@
         ctx.beginPath(); ctx.arc(gDist, 0, gSize, 0, Math.PI*2); ctx.fill();
         ctx.restore();
 
-        // Partículas
         for(let i=state.particles.length-1; i>=0; i--) {
             let p = state.particles[i];
             p.x += p.vx; p.y += p.vy; p.life -= 0.05;
