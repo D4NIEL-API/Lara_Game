@@ -190,7 +190,8 @@
             Relájate, respira y cultiva vida.<br>
             Guía a la medusa y sobrevive.<br><br>
             🟣 <b>Esporas:</b> Crean vida<br>
-            🔴 <b>Minas:</b> Peligro constante
+            🔴 <b>Minas:</b> Peligro constante<br>
+            ⚪ <b>Nutrientes:</b> 6 crean una seta
         </p>
         <button type="button" class="btn btn-primary" id="btn-start">Comenzar Inmersión</button>
     </div>
@@ -228,6 +229,7 @@
     const state = {
         score: 0,
         lives: 3,
+        nutrients: 0, // Nuevo contador de acumulación
         entities: [],
         mushrooms: [],
         particles: []
@@ -285,7 +287,6 @@
     function initPlayer() {
         player.tentacles = [];
         player.arms = [];
-        // Reducido a 8 segmentos para una cola más corta y controlada
         for(let i=0; i<12; i++) {
             let t = [];
             for(let j=0; j<8; j++) t.push({x: player.x, y: player.y + j*4});
@@ -309,6 +310,7 @@
         
         state.score = 0;
         state.lives = 3;
+        state.nutrients = 0;
         state.entities = [];
         state.mushrooms = [];
         state.particles = [];
@@ -333,7 +335,6 @@
             gameUrl = gameUrl.replace('blob:', '');
         }
 
-        // MENSAJE SOLICITADO ACTUALIZADO
         const text = `¡He cultivado ${state.score} setas en Laragame! 🍄✨ Juega aquí e intenta superarme: ${gameUrl}`;
         const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
         waLink.href = url;
@@ -382,10 +383,6 @@
         }
     }
 
-    /**
-     * Dibuja y actualiza la física de un tentáculo.
-     * Mejorado para evitar estiramientos excesivos (rigidez aumentada).
-     */
     function drawTentacle(t, color, w, wave, segmentDist) {
         ctx.beginPath();
         ctx.moveTo(t[0].x, t[0].y);
@@ -394,15 +391,12 @@
             let p = t[i];
             let prev = t[i-1];
             
-            // FÍSICA MÁS RÍGIDA (0.55 en lugar de 0.35)
-            // El segmento sigue al anterior intentando mantener segmentDist verticalmente.
             const targetX = prev.x;
             const targetY = prev.y + segmentDist;
             
             p.x += (targetX - p.x) * 0.55;
             p.y += (targetY - p.y) * 0.55;
             
-            // Movimiento ondulante de agua (limitado para realismo)
             const currentWave = Math.sin(gameTime * 0.15 + i * 0.3) * wave;
             
             ctx.lineTo(p.x + currentWave, p.y);
@@ -473,6 +467,7 @@
 
             if(Math.sqrt(dx*dx + dy*dy) < player.size + collisionSize + 5) {
                 createExplosion(e.x, e.y, e.color);
+                
                 if(e.type === 'toxin') {
                     state.lives--;
                     updateHUD();
@@ -490,7 +485,31 @@
                     });
                     ctx.fillStyle = 'rgba(255,255,255,0.3)';
                     ctx.fillRect(0,0,width,height);
+                } else if(e.type === 'food') {
+                    // --- NUEVA MECÁNICA: 6 Nutrientes = 1 Seta (Espora) ---
+                    state.nutrients++;
+                    // Efecto visual al comer
+                    ctx.fillStyle = 'rgba(0, 255, 100, 0.05)';
+                    ctx.fillRect(0,0,width,height);
+                    
+                    if (state.nutrients >= 6) {
+                        state.nutrients = 0;
+                        // Efecto de conseguir seta
+                        state.score++;
+                        updateHUD();
+                        // Plantar seta
+                        state.mushrooms.push({
+                            x: e.x, y: height, // Planta donde se comió el nutriente
+                            targetH: 60+Math.random()*60, h:0,
+                            w: 20+Math.random()*30,
+                            hue: 260+Math.random()*60
+                        });
+                        // Flash violeta de premio
+                        ctx.fillStyle = 'rgba(200, 100, 255, 0.3)';
+                        ctx.fillRect(0,0,width,height);
+                    }
                 }
+                
                 state.entities.splice(i, 1);
                 spawnEntity();
             } else if (e.y < -50) {
@@ -501,24 +520,19 @@
 
         player.x += (mouse.x - player.x) * 0.08;
         player.y += (mouse.y - player.y) * 0.08;
-        
         let angle = (mouse.x - player.x) * 0.003;
         if(angle > 0.4) angle = 0.4; if(angle < -0.4) angle = -0.4;
 
         let breath = Math.sin(gameTime * 0.2) * 2;
 
-        // DIBUJAR TENTÁCULOS (Detrás de la campana)
         player.tentacles.forEach((t, i) => {
             let offset = (i-6)*3;
-            // COORDENADAS LOCALES + ROTACIÓN (Fijar tentáculos al cuerpo)
             let localX = offset;
-            let localY = 10 + Math.abs(offset/4); // Base vertical relativa
+            let localY = 10 + Math.abs(offset/4);
 
-            // Rotar coordenadas locales
             let rotX = localX * Math.cos(angle) - localY * Math.sin(angle);
             let rotY = localX * Math.sin(angle) + localY * Math.cos(angle);
 
-            // Aplicar a la cabeza del tentáculo
             t[0].x = player.x + rotX;
             t[0].y = player.y + rotY;
 
@@ -539,7 +553,6 @@
             drawTentacle(t, 'rgba(200, 255, 255, 0.3)', 3, 0.5, 4); 
         });
 
-        // --- CUERPO MEDUSA (Delante) ---
         ctx.save();
         ctx.translate(player.x, player.y);
         ctx.rotate(angle);
