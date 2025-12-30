@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
+    <!-- METADATOS PARA COMPARTIR -->
     <meta property="og:title" content="Laragame: El Bosque Sumergido">
-    <meta property="og:description" content="Relájate, respira y cultiva vida en este océano bioluminiscente. Cuidado con las toxinas.">
+    <meta property="og:description" content="Relájate, respira y cultiva vida en este océano bioluminiscente.">
     <meta property="og:image" content="https://img.icons8.com/color/480/jellyfish.png">
     <meta property="og:type" content="website">
     
@@ -30,7 +31,7 @@
             height: 100%;
         }
 
-        /* TÍTULO */
+        /* TÍTULO SUPERIOR */
         #game-title {
             position: absolute;
             top: 20px;
@@ -284,15 +285,15 @@
     function initPlayer() {
         player.tentacles = [];
         player.arms = [];
-        // Reducido el número de segmentos para que la cola no sea infinita
+        // Reducido a 8 segmentos para una cola más corta y controlada
         for(let i=0; i<12; i++) {
             let t = [];
-            for(let j=0; j<10; j++) t.push({x: player.x, y: player.y + j*5});
+            for(let j=0; j<8; j++) t.push({x: player.x, y: player.y + j*4});
             player.tentacles.push(t);
         }
         for(let i=0; i<4; i++) {
             let t = [];
-            for(let j=0; j<6; j++) t.push({x: player.x, y: player.y + j*5});
+            for(let j=0; j<5; j++) t.push({x: player.x, y: player.y + j*3});
             player.arms.push(t);
         }
     }
@@ -332,6 +333,7 @@
             gameUrl = gameUrl.replace('blob:', '');
         }
 
+        // MENSAJE SOLICITADO ACTUALIZADO
         const text = `¡He cultivado ${state.score} setas en Laragame! 🍄✨ Juega aquí e intenta superarme: ${gameUrl}`;
         const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
         waLink.href = url;
@@ -382,7 +384,7 @@
 
     /**
      * Dibuja y actualiza la física de un tentáculo.
-     * Mejorado para evitar estiramientos excesivos.
+     * Mejorado para evitar estiramientos excesivos (rigidez aumentada).
      */
     function drawTentacle(t, color, w, wave, segmentDist) {
         ctx.beginPath();
@@ -392,14 +394,15 @@
             let p = t[i];
             let prev = t[i-1];
             
-            // Física más rígida para que no parezca chicle
-            const dx = prev.x - p.x;
-            const dy = (prev.y + segmentDist) - p.y;
+            // FÍSICA MÁS RÍGIDA (0.55 en lugar de 0.35)
+            // El segmento sigue al anterior intentando mantener segmentDist verticalmente.
+            const targetX = prev.x;
+            const targetY = prev.y + segmentDist;
             
-            p.x += dx * 0.35;
-            p.y += dy * 0.35;
+            p.x += (targetX - p.x) * 0.55;
+            p.y += (targetY - p.y) * 0.55;
             
-            // Movimiento ondulante de agua (limitado)
+            // Movimiento ondulante de agua (limitado para realismo)
             const currentWave = Math.sin(gameTime * 0.15 + i * 0.3) * wave;
             
             ctx.lineTo(p.x + currentWave, p.y);
@@ -504,22 +507,23 @@
 
         let breath = Math.sin(gameTime * 0.2) * 2;
 
-        // Tentáculos largos
+        // DIBUJAR TENTÁCULOS (Detrás de la campana)
         player.tentacles.forEach((t, i) => {
             let offset = (i-6)*3;
+            // Base del tentáculo sigue a la medusa
             t[0].x = player.x + Math.sin(angle)*(25+breath) + offset;
             t[0].y = player.y + 10 + Math.abs(offset/4);
-            drawTentacle(t, 'rgba(0, 255, 204, 0.4)', 1, 1.2, 5); // Distancia reducida a 5
+            // Longitud reducida y segmentDist de 5 para evitar estiramiento
+            drawTentacle(t, 'rgba(0, 255, 204, 0.4)', 1, 1.2, 5); 
         });
         
-        // Brazos orales
         player.arms.forEach((t, i) => {
             t[0].x = player.x + (i-2)*2; 
             t[0].y = player.y + 5;
-            drawTentacle(t, 'rgba(200, 255, 255, 0.3)', 3, 0.5, 3); // Distancia reducida a 3
+            drawTentacle(t, 'rgba(200, 255, 255, 0.3)', 3, 0.5, 4); 
         });
 
-        // --- CUERPO MEDUSA ---
+        // --- CUERPO MEDUSA (Delante) ---
         ctx.save();
         ctx.translate(player.x, player.y);
         ctx.rotate(angle);
@@ -554,6 +558,7 @@
         ctx.beginPath(); ctx.arc(gDist, 0, gSize, 0, Math.PI*2); ctx.fill();
         ctx.restore();
 
+        // Partículas
         for(let i=state.particles.length-1; i>=0; i--) {
             let p = state.particles[i];
             p.x += p.vx; p.y += p.vy; p.life -= 0.05;
