@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Laragame</title>
+    <style>
+        /* --- ESTILOS BASE --- */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #020410;
+            font-family: 'Segoe UI', sans-serif;
+            touch-action: none; 
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* TÍTULO (Arriba Centro) */
+        #game-title {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            font-size: 24px;
+            font-weight: 800;
+            color: rgba(255, 255, 255, 0.2); 
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* HUD (Abajo Izquierda) */
+        #ui-layer {
+            position: absolute;
+            bottom: 30px;
+            left: 20px;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .hud-text {
+            color: #00ffcc;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(0,255,204,0.6);
+            margin: 0;
+        }
+
+        #hearts {
+            display: flex;
+            gap: 5px;
+        }
+
+        .heart {
+            width: 22px;
+            height: 22px;
+            background-color: #ff3366;
+            clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+            transition: all 0.3s;
+            box-shadow: 0 0 10px #ff3366;
+        }
+        .heart.lost {
+            background-color: #3a3a4a;
+            opacity: 0.4;
+            transform: scale(0.8);
+            box-shadow: none;
+        }
+
+        /* --- PANTALLAS (MENÚS) --- */
+        .screen {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(2, 4, 16, 0.96);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* CORRECCIÓN CRÍTICA: display none para evitar clicks fantasmas */
+        .screen.hidden {
+            display: none !important;
+        }
+
+        h1 {
+            color: #00ffcc;
+            font-size: 40px;
+            margin: 0 0 10px 0;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            text-shadow: 0 0 25px rgba(0,255,204,0.4);
+        }
+
+        p {
+            color: #b0c0d0;
+            font-size: 16px;
+            line-height: 1.6;
+            max-width: 400px;
+            margin-bottom: 40px;
+        }
+
+        /* BOTONES */
+        .btn {
+            border: none;
+            border-radius: 50px;
+            padding: 18px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            width: 100%;
+            max-width: 280px;
+            margin: 8px 0;
+            transition: transform 0.2s;
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none; 
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-primary {
+            background: rgba(0, 255, 204, 0.15);
+            border: 2px solid #00ffcc;
+            color: #00ffcc;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
+        }
+
+        .btn-whatsapp {
+            background-color: #25D366;
+            color: white;
+            box-shadow: 0 0 20px rgba(37, 211, 102, 0.3);
+        }
+
+        .icon-wa {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-title">LARAGAME</div>
+
+    <div id="ui-layer">
+        <div id="hearts">
+            <div class="heart" id="h1"></div>
+            <div class="heart" id="h2"></div>
+            <div class="heart" id="h3"></div>
+        </div>
+        <div class="hud-text" id="score">Jardín: 0</div>
+    </div>
+
+    <!-- PANTALLA INICIO -->
+    <div id="start-screen" class="screen">
+        <h1>Laragame</h1>
+        <p>
+            Relájate y cultiva vida.<br>
+            Arrastra el dedo para guiar a la medusa.<br><br>
+            🟣 <b>Esporas:</b> Crean setas<br>
+            🔴 <b>Toxinas:</b> Evítalas
+        </p>
+        <!-- type="button" asegura que no se comporte como submit -->
+        <button type="button" class="btn btn-primary" id="btn-start">Comenzar Inmersión</button>
+    </div>
+
+    <!-- PANTALLA GAME OVER -->
+    <div id="game-over-screen" class="screen hidden">
+        <h1 style="color: #ff3366; font-size: 32px;">Descanso</h1>
+        <p id="final-msg">Has cultivado un jardín precioso.</p>
+        
+        <!-- Enlace sin href inicial para evitar recargas accidentales -->
+        <a id="wa-link" class="btn btn-whatsapp" target="_blank">
+            <svg class="icon-wa" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            Compartir Puntuación
+        </a>
+        
+        <button type="button" class="btn btn-primary" onclick="location.reload()">Nadar de nuevo</button>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+<script>
+    // --- VARIABLES ---
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // UI Elements
+    const startScreen = document.getElementById('start-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const scoreEl = document.getElementById('score');
+    const btnStart = document.getElementById('btn-start');
+    const waLink = document.getElementById('wa-link');
+
+    let width, height;
+    let isRunning = false;
+    let gameTime = 0;
+    
+    const state = {
+        score: 0,
+        lives: 3,
+        entities: [],
+        mushrooms: [],
+        particles: []
+    };
+    
+    const player = { x: 0, y: 0, size: 30, tentacles: [], arms: [] };
+    const mouse = { x: 0, y: 0 };
+
+    // --- SISTEMA DE PANTALLA ---
+    function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
+        ctx.scale(dpr, dpr);
+        
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+
+        if(!isRunning) {
+            player.x = width/2;
+            player.y = height/2;
+            mouse.x = width/2;
+            mouse.y = height/2;
+        }
+    }
+    window.addEventListener('resize', resize);
+
+    // --- EVENTOS (INPUT) ---
+    // Start Button
+    const handleStart = (e) => {
+        if (e.cancelable) e.preventDefault(); 
+        e.stopPropagation();
+        startGame();
+    };
+    // Usamos touchstart para respuesta rápida en móvil
+    btnStart.addEventListener('touchstart', handleStart, {passive: false});
+    btnStart.addEventListener('click', handleStart);
+
+    // Movimiento Medusa
+    const handleMove = (e) => {
+        if(isRunning) {
+            if (e.cancelable) e.preventDefault();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            mouse.x = clientX;
+            mouse.y = clientY;
+        }
+    };
+    canvas.addEventListener('touchmove', handleMove, {passive: false});
+    canvas.addEventListener('touchstart', handleMove, {passive: false});
+    window.addEventListener('mousemove', handleMove);
+
+    // --- LÓGICA JUEGO ---
+    function initPlayer() {
+        player.tentacles = [];
+        player.arms = [];
+        for(let i=0; i<12; i++) {
+            let t = [];
+            for(let j=0; j<18; j++) t.push({x: player.x, y: player.y + j*5});
+            player.tentacles.push(t);
+        }
+        for(let i=0; i<4; i++) {
+            let t = [];
+            for(let j=0; j<10; j++) t.push({x: player.x, y: player.y + j*5});
+            player.arms.push(t);
+        }
+    }
+
+    function startGame() {
+        if(isRunning) return;
+        
+        // Ocultar usando la clase que aplica display: none
+        startScreen.classList.add('hidden');
+        gameOverScreen.classList.add('hidden');
+        
+        resize();
+        initPlayer();
+        
+        state.score = 0;
+        state.lives = 3;
+        state.entities = [];
+        state.mushrooms = [];
+        state.particles = [];
+        gameTime = 0;
+        
+        updateHUD();
+        
+        for(let i=0; i<10; i++) spawnEntity('food');
+        spawnEntity('spore');
+        
+        isRunning = true;
+        animate();
+    }
+
+    function gameOver() {
+        isRunning = false;
+        document.getElementById('final-msg').innerText = `Has cultivado ${state.score} setas brillantes.`;
+        
+        const text = `¡He cultivado ${state.score} setas brillantes en Laragame! 🍄✨ ¿Puedes superarlo?`;
+        // URL universal de WhatsApp
+        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+        waLink.href = url;
+        
+        gameOverScreen.classList.remove('hidden');
+    }
+
+    function updateHUD() {
+        scoreEl.innerText = "Jardín: " + state.score;
+        for(let i=1; i<=3; i++) {
+            const heart = document.getElementById('h'+i);
+            if(i <= state.lives) heart.classList.remove('lost');
+            else heart.classList.add('lost');
+        }
+    }
+
+    function spawnEntity(forceType) {
+        let type = forceType || 'food';
+        if(!forceType) {
+            const r = Math.random();
+            let toxinProb = 0.05 + (state.score * 0.02);
+            if(toxinProb > 0.4) toxinProb = 0.4;
+            
+            if(r < toxinProb) type = 'toxin';
+            else if(r < toxinProb + 0.2) type = 'spore';
+        }
+        
+        state.entities.push({
+            type: type,
+            x: Math.random() * width,
+            y: height + 50,
+            speed: type === 'toxin' ? 2 + Math.random() : 1 + Math.random() * 0.5,
+            size: type === 'toxin' ? 12 : (type === 'spore' ? 6 : 3),
+            color: type === 'toxin' ? '#ff3366' : (type === 'spore' ? '#d400ff' : '#fff'),
+            wobble: Math.random() * 10
+        });
+    }
+
+    function createExplosion(x, y, color) {
+        for(let i=0; i<8; i++) {
+            state.particles.push({
+                x: x, y: y,
+                vx: (Math.random()-0.5)*6, vy: (Math.random()-0.5)*6,
+                color: color, life: 1
+            });
+        }
+    }
+
+    function drawTentacle(t, color, w, wave) {
+        ctx.beginPath();
+        ctx.moveTo(t[0].x, t[0].y);
+        for(let i=1; i<t.length; i++) {
+            let p = t[i];
+            let prev = t[i-1];
+            p.x += (prev.x - p.x) * 0.4;
+            p.y += (prev.y - p.y) * 0.4;
+            p.x += Math.sin(gameTime * 0.15 + i * 0.3) * wave;
+            ctx.lineTo(p.x, p.y);
+        }
+        ctx.strokeStyle = color;
+        ctx.lineWidth = w;
+        ctx.stroke();
+    }
+
+    function animate() {
+        if(!isRunning) return;
+
+        ctx.fillStyle = '#020410';
+        ctx.fillRect(0, 0, width, height);
+        gameTime += 0.1;
+
+        state.mushrooms.forEach(m => {
+            if(m.h < m.targetH) m.h += 0.5;
+            ctx.fillStyle = `hsl(${m.hue}, 30%, 20%)`;
+            ctx.fillRect(m.x-3, m.y-m.h, 6, m.h);
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = `hsl(${m.hue}, 80%, 60%)`;
+            ctx.fillStyle = `hsl(${m.hue}, 70%, 60%)`;
+            ctx.beginPath();
+            ctx.arc(m.x, m.y-m.h, m.w/2, 0, Math.PI*2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        });
+
+        for(let i=state.entities.length-1; i>=0; i--) {
+            let e = state.entities[i];
+            e.y -= e.speed;
+            e.x += Math.sin(gameTime * 0.1 + e.wobble);
+            
+            ctx.fillStyle = e.color;
+            ctx.shadowBlur = e.type === 'food' ? 0 : 15;
+            ctx.shadowColor = e.color;
+            ctx.beginPath();
+            
+            if(e.type === 'toxin') {
+                ctx.moveTo(e.x, e.y-e.size);
+                ctx.lineTo(e.x+e.size, e.y+e.size);
+                ctx.lineTo(e.x-e.size, e.y+e.size);
+            } else {
+                ctx.arc(e.x, e.y, e.size, 0, Math.PI*2);
+            }
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            let dx = player.x - e.x;
+            let dy = (player.y - 10) - e.y;
+            if(Math.sqrt(dx*dx + dy*dy) < player.size + e.size + 5) {
+                createExplosion(e.x, e.y, e.color);
+                
+                if(e.type === 'toxin') {
+                    state.lives--;
+                    updateHUD();
+                    ctx.fillStyle = 'rgba(255,0,0,0.3)';
+                    ctx.fillRect(0,0,width,height);
+                    if(state.lives <= 0) gameOver();
+                } else if(e.type === 'spore') {
+                    state.score++;
+                    updateHUD();
+                    state.mushrooms.push({
+                        x: e.x, y: height,
+                        targetH: 60+Math.random()*60, h:0,
+                        w: 20+Math.random()*30,
+                        hue: 260+Math.random()*60
+                    });
+                    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                    ctx.fillRect(0,0,width,height);
+                }
+                state.entities.splice(i, 1);
+                spawnEntity();
+            } else if (e.y < -50) {
+                state.entities.splice(i, 1);
+                spawnEntity();
+            }
+        }
+
+        player.x += (mouse.x - player.x) * 0.08;
+        player.y += (mouse.y - player.y) * 0.08;
+        
+        let angle = (mouse.x - player.x) * 0.003;
+        if(angle > 0.4) angle = 0.4; if(angle < -0.4) angle = -0.4;
+
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        ctx.rotate(angle);
+        let breath = Math.sin(gameTime * 0.2) * 2;
+        ctx.restore();
+
+        // Tentáculos detrás de la campana
+        player.tentacles.forEach((t, i) => {
+            let offset = (i-6)*3;
+            // Tentáculos salen del borde de la campana
+            t[0].x = player.x + Math.sin(angle)*(25+breath) + offset;
+            t[0].y = player.y + 10 + Math.abs(offset/4);
+            drawTentacle(t, 'rgba(0, 255, 204, 0.4)', 1, 1.2);
+        });
+        player.arms.forEach((t, i) => {
+            t[0].x = player.x + (i-2)*2; t[0].y = player.y+5;
+            drawTentacle(t, 'rgba(200, 255, 255, 0.3)', 3, 0.5);
+        });
+
+        // --- CUERPO MEDUSA ---
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        ctx.rotate(angle);
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#00ffcc';
+        ctx.fillStyle = 'rgba(0, 30, 40, 0.85)';
+        ctx.strokeStyle = '#00ffcc';
+        ctx.lineWidth = 1.5;
+        
+        // 1. Campana principal (Domo)
+        ctx.beginPath();
+        // Cúpula superior suave
+        ctx.moveTo(-player.size * 1.2, 5); 
+        ctx.bezierCurveTo(
+            -player.size, -player.size * 1.5, 
+            player.size, -player.size * 1.5, 
+            player.size * 1.2, 5
+        );
+        
+        // 2. Borde ondulado (Margin)
+        // Dibujamos ondas suaves que cierran la forma por abajo
+        const waves = 8;
+        const waveStep = (player.size * 2.4) / waves;
+        const startX = -player.size * 1.2;
+        
+        for (let i = 0; i < waves; i++) {
+            const wx = startX + i * waveStep;
+            const wy = 5;
+            // Ondas alternadas
+            const cpY = (i % 2 === 0) ? 15 + breath : 8 + breath*0.5;
+            
+            ctx.bezierCurveTo(
+                wx + waveStep/2, cpY, 
+                wx + waveStep/2, cpY, 
+                wx + waveStep, wy
+            );
+        }
+        
+        ctx.fill();
+        ctx.stroke();
+
+        // 3. Gónadas (4 anillos en forma de trébol)
+        ctx.fillStyle = 'rgba(0, 255, 204, 0.5)';
+        ctx.shadowBlur = 10;
+        
+        // Posiciones relativas para los 4 anillos
+        const gSize = 6 + breath/3;
+        const gDist = 8 + breath/4;
+        
+        // Arriba
+        ctx.beginPath(); ctx.arc(0, -gDist, gSize, 0, Math.PI*2); ctx.fill();
+        // Abajo
+        ctx.beginPath(); ctx.arc(0, gDist, gSize, 0, Math.PI*2); ctx.fill();
+        // Izquierda
+        ctx.beginPath(); ctx.arc(-gDist, 0, gSize, 0, Math.PI*2); ctx.fill();
+        // Derecha
+        ctx.beginPath(); ctx.arc(gDist, 0, gSize, 0, Math.PI*2); ctx.fill();
+
+        ctx.restore();
+        ctx.shadowBlur = 0;
+
+        for(let i=state.particles.length-1; i>=0; i--) {
+            let p = state.particles[i];
+            p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.fillRect(p.x, p.y, 3, 3);
+            if(p.life<=0) state.particles.splice(i,1);
+        }
+        ctx.globalAlpha = 1;
+
+        requestAnimationFrame(animate);
+    }
+    
+    resize();
+
+</script>
+</body>
+</html>
